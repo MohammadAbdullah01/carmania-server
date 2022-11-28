@@ -46,16 +46,22 @@ function verifyJwt(req, res, next) {
 async function run() {
     try {
         await client.connect();
+        const carsCollection = client.db("carmania").collection("cars");
         const usersCollection = client.db("carmania").collection("users");
+        const ordersCollection = client.db("carmania").collection("orders");
         //to save a user
 
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email;
-            const role = req.body.role;
+            let role = req.body.role;
             const name = req.body.name;
             const filter = { user: email };
             const options = { upsert: true };
-            console.log(name);
+            const query = { user: email }
+            const gotIt = await usersCollection.findOne(query)
+            if (gotIt?.role == "seller") {
+                role = "seller"
+            }
             const updateDoc = {
                 $set: {
                     user: email,
@@ -66,7 +72,47 @@ async function run() {
             const updateUser = await usersCollection.updateOne(filter, updateDoc, options)
             var token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN);
             res.send({ accessToken: token })
-            console.log(email);
+        })
+
+
+        //get all cars
+        app.get('/cars', async (req, res) => {
+            const query = {}
+            const cursor = carsCollection.find(query)
+            const result = await cursor.toArray()
+            res.send(result)
+        })
+
+        //get car by category
+        //get specific part with id
+        app.get('/cars/:carCategory', async (req, res) => {
+            const category = req.params.carCategory
+            const query = { category: category }
+            const result = await carsCollection.find(query).toArray();
+            res.send(result);
+        })
+
+
+        //for user
+        //post order
+        app.post('/orders', async (req, res) => {
+            const order = req.body;
+            const orderCompleted = await ordersCollection.insertOne(order)
+            res.send(orderCompleted)
+        })
+        //get specific user orders with email
+        app.get('/orders/:email', verifyJwt, async (req, res) => {
+            const tokenEmail = req.decoded;
+            const email = req.params.email;
+            if (tokenEmail.email === email) {
+                const query = { email: email }
+                const result = await ordersCollection.find(query).toArray()
+                return res.send(result)
+            }
+            else {
+                return res.status(403).send({ message: "forbidden" })
+            }
+
         })
     } finally {
         // await client.close();
