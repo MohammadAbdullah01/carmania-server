@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
 })
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.lg5fruz.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
@@ -32,23 +32,19 @@ function verifyJwt(req, res, next) {
         next()
     });
 }
-
-
-
-// const { MongoClient } = require("mongodb");
-// Replace the uri string with your MongoDB deployment's connection string.
-// const uri =
-//   "mongodb+srv://<user>:<password>@<cluster-url>?writeConcern=majority";
-// const client = new MongoClient(uri, {
-//   useNewUrlParser: true,
-//   useUnifiedTopology: true,
-// });
 async function run() {
     try {
         await client.connect();
         const carsCollection = client.db("carmania").collection("cars");
         const usersCollection = client.db("carmania").collection("users");
         const ordersCollection = client.db("carmania").collection("orders");
+        //check current users role
+        app.get('/user/:email', async (req, res) => {
+            const email = req.params.email;
+            const user = await usersCollection.findOne({ user: email })
+            const role = user?.role
+            res.send({ role: role })
+        })
         //to save a user
 
         app.put('/users/:email', async (req, res) => {
@@ -59,9 +55,14 @@ async function run() {
             const options = { upsert: true };
             const query = { user: email }
             const gotIt = await usersCollection.findOne(query)
+            console.log(gotIt);
             if (gotIt?.role == "seller") {
                 role = "seller"
             }
+            if (gotIt?.role == "admin") {
+                role = "admin"
+            }
+            console.log(gotIt);
             const updateDoc = {
                 $set: {
                     user: email,
@@ -114,6 +115,45 @@ async function run() {
             }
 
         })
+
+
+        // for seller 
+        // get one sellers her own products 
+        app.get('/sellercars/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { sellerEmail: email }
+            const result = await carsCollection.find(query).toArray()
+            return res.send(result)
+        })
+
+        //delete one car with id
+        //delte one order with id
+        app.delete('/cardelete/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await carsCollection.deleteOne(query);
+            res.send(result)
+        })
+        //advertise one order with id
+        app.put('/advertisecar/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    advertised: true
+                },
+            };
+            const result = await carsCollection.updateOne(filter, updateDoc, options);
+            return res.send(result)
+        })
+        //get only advertised cars
+        app.get('/advertisedcars', async (req, res) => {
+            const query = { advertised: true, sold: false }
+            const result = await carsCollection.find(query).toArray();
+            res.send(result);
+        })
+
     } finally {
         // await client.close();
     }
