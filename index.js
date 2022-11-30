@@ -75,7 +75,48 @@ async function run() {
             res.send({ accessToken: token })
         })
 
+        //get all users
+        app.get('/users', async (req, res) => {
+            const query = {}
+            const cursor = usersCollection.find(query)
+            const result = await cursor.toArray()
+            res.send(result)
+        })
+        //get all sellers
 
+        app.get('/allsellers', async (req, res) => {
+            const query = { role: "seller" }
+            const result = await usersCollection.find(query).toArray()
+            return res.send(result)
+        })
+        //delete one seller
+        app.delete('/deleteseller/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await usersCollection.deleteOne(query);
+            res.send(result)
+        })
+        //get all buyers
+        app.get('/allbuyers', async (req, res) => {
+            const query = { role: "user" }
+            const result = await usersCollection.find(query).toArray()
+            return res.send(result)
+        })
+        // delete one buyer 
+        app.delete('/deletebuyer/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await usersCollection.deleteOne(query);
+            res.send(result)
+        })
+
+        //get only one user
+        app.get('/getuser/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { user: email }
+            const user = await usersCollection.findOne({ user: email })
+            res.send(user)
+        })
         //get all cars
         app.get('/cars', async (req, res) => {
             const query = {}
@@ -102,17 +143,17 @@ async function run() {
             res.send(orderCompleted)
         })
         //get specific user orders with email
-        app.get('/orders/:email', verifyJwt, async (req, res) => {
-            const tokenEmail = req.decoded;
+        app.get('/orders/:email', async (req, res) => {
+            // const tokenEmail = req.decoded;
             const email = req.params.email;
-            if (tokenEmail.email === email) {
-                const query = { email: email }
-                const result = await ordersCollection.find(query).toArray()
-                return res.send(result)
-            }
-            else {
-                return res.status(403).send({ message: "forbidden" })
-            }
+            // if (tokenEmail.email === email) {
+            const query = { email: email }
+            const result = await ordersCollection.find(query).toArray()
+            return res.send(result)
+            // }
+            // else {
+            // return res.status(403).send({ message: "forbidden" })
+            // }
 
         })
 
@@ -153,7 +194,12 @@ async function run() {
             const result = await carsCollection.find(query).toArray();
             res.send(result);
         })
-
+        //insert a car
+        app.post('/cars', async (req, res) => {
+            const car = req.body;
+            const result = carsCollection.insertOne(car)
+            res.send(result)
+        })
     } finally {
         // await client.close();
     }
